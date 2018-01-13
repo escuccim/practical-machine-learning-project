@@ -3,8 +3,9 @@ title: "Weight Lifting Exercise Analysis"
 author: "Eric Scuccimarra"
 date: "13 January 2018"
 output:
+  html_document: 
+      keep_md: true
   pdf_document: default
-  html_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -106,7 +107,7 @@ The confusion matrix for the predictions of the boost model on the training data
 
 ## Model Selection
 
-Based on the performance on the training data, the random forest model looks like a better predictor. However, to confirm this we will compare the performance of each model on the cross-validation data set.
+Based on the performance on the training data, the random forest model looks like a better predictor. However, to confirm this we will compare the performance of each model on the cross-validation data set. While cross validation was included in the training process, I prefer to err on the side of caution.
 
 Let's start by using our two competing models to predict the classe of the cross validation set and look at the confusion matrices. I will start with the random forest confusion matrix.
 ```{r crossvalidationrf}
