@@ -452,3 +452,10 @@ confusionMatrix( predict(boostModel, training) , training$classe)
 ## Detection Prevalence   0.2857   0.1922   0.1791   0.1624   0.1806
 ## Balanced Accuracy      0.9915   0.9742   0.9785   0.9813   0.9884
 ```
+
+
+Data from: http://groupware.les.inf.puc-rio.br/har#weight_lifting_exercises
+
+Velloso, E.; Bulling, A.; Gellersen, H.; Ugulino, W.; Fuks, H. Qualitative Activity Recognition of Weight Lifting Exercises. Proceedings of 4th International Conference in Cooperation with SIGCHI (Augmented Human '13) . Stuttgart, Germany: ACM SIGCHI, 2013.
+
+Read more: http://groupware.les.inf.puc-rio.br/har#weight_lifting_exercises#ixzz544eVRPQM
