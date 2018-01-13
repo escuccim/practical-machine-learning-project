@@ -1,0 +1,84 @@
+---
+title: "Weight Lifting Exercise Analysis"
+author: "Eric Scuccimarra"
+date: "13 January 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(caret)
+```
+
+## Executive Summary
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. Data was gathered from accelerometers on the belt, forearm, arm and dumbell of 6 participants while they performed barbell lifts both correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
+
+The goal of this analysis is to create a prediction algorithm to determine whether the participants peformed the exercise correctly or not, based on the data from the accelerometers.
+
+## Loading and Preprocessing Data
+
+```{r loaddata, cache=TRUE}
+download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv", dest="./data/pml-training.csv")
+download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv", dest="./data/pml-testing.csv")
+training <- read.csv("./data/pml-training.csv")
+testing <- read.csv("./data/pml-testing.csv")
+```
+
+The data has a large number of features, so I will begin by removing features which may not be useful. In addition to columns which do not contain acceleromter data, I will remove features with near zero variance and those which contain a large proportion of missing values, setting the threshold at 95%.
+
+```{r cleandata}
+training$user_name <- NULL
+training$X <- NULL
+training$raw_timestamp_part_1 <- NULL
+training$raw_timestamp_part_2 <- NULL
+training$cvtd_timestamp <- NULL
+training$num_window <- NULL
+nearzerovar <- nearZeroVar(training, saveMetrics = T)
+training <- training[, !nearzerovar$nzv]
+colswithNAs <- colSums(is.na(training)) > (0.95 * nrow(training))
+training <- training[, !colswithNAs]
+```
+
+This leaves a more manageable `r ncol(training)-1` features to use for our model. Next I will preprocess the data by scaling and centering.
+
+```{r preprocess}
+preprocessObj <- preProcess(training, method=c("center", "scale"))
+training <- predict(preprocessObj, training)
+testing <- predict(preprocessObj, testing)
+```
+
+And finally I will split the training data into a training set and a cross-validation set:
+```{r splitdata}
+inTrain <- createDataPartition(y=training$classe,p=0.7, list=FALSE)
+crossv <- training[-inTrain,]
+training <- training[inTrain,]
+```
+
+## Exploratory Data Analysis
+
+Now I will look at a correlation matrix between classe and the remaining features. The matrix is included in the appendix in Figure 1.
+
+```{r correlationmatrix, results="hide"}
+apply(training, 2, function(col) cor(as.numeric(col), as.numeric(training$classe), method="spearman")) 
+```
+
+The facts that this is a classification problem and that none of the features has a high correlation to classe make linear models likely to be a poor choice for modeling the problem. I will instead try to use random forests and boosting models.
+
+## Random Forest Model
+
+To begin I will train a random forest model using 5-fold cross validation:
+
+```{r randomforest}
+set.seed(123455)
+rfModel <- train(classe ~ ., method="rf", data=training, trControl = trainControl(method = "cv", number = 5))
+```
+
+
+## Appendix
+
+### Figure 1 - Correlation Matrix of features to classe
+
+```{r correlationmatrix}
+apply(training, 2, function(col) cor(as.numeric(col), as.numeric(training$classe), method="spearman")) 
+```
