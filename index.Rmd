@@ -2,12 +2,18 @@
 title: "Weight Lifting Exercise Analysis"
 author: "Eric Scuccimarra"
 date: "13 January 2018"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+# Load libraries
 library(caret)
+library(ggplot2)
+# Set seed for reproducibility
+set.seed(123455)
 ```
 
 ## Executive Summary
@@ -27,7 +33,7 @@ testing <- read.csv("./data/pml-testing.csv")
 
 The data has a large number of features, so I will begin by removing features which may not be useful. In addition to columns which do not contain acceleromter data, I will remove features with near zero variance and those which contain a large proportion of missing values, setting the threshold at 95%.
 
-```{r cleandata}
+```{r cleandata, cache=TRUE}
 training$user_name <- NULL
 training$X <- NULL
 training$raw_timestamp_part_1 <- NULL
@@ -42,7 +48,7 @@ training <- training[, !colswithNAs]
 
 This leaves a more manageable `r ncol(training)-1` features to use for our model. Next I will preprocess the data by scaling and centering.
 
-```{r preprocess}
+```{r preprocess, cache=TRUE}
 preprocessObj <- preProcess(training, method=c("center", "scale"))
 training <- predict(preprocessObj, training)
 testing <- predict(preprocessObj, testing)
@@ -65,13 +71,83 @@ apply(training, 2, function(col) cor(as.numeric(col), as.numeric(training$classe
 
 The facts that this is a classification problem and that none of the features has a high correlation to classe make linear models likely to be a poor choice for modeling the problem. I will instead try to use random forests and boosting models.
 
-## Random Forest Model
+## Prediction Models
+
+### Random Forest Model
 
 To begin I will train a random forest model using 5-fold cross validation:
 
-```{r randomforest}
-set.seed(123455)
+```{r randomforest, cache=TRUE}
 rfModel <- train(classe ~ ., method="rf", data=training, trControl = trainControl(method = "cv", number = 5))
+```
+
+Now we will look at a summary of the model: 
+```{r rfsummary}
+rfModel
+```
+
+The random forest model has a very high accuracy rating of 99%. A confusion matrix for the actual values of classe vs the predictions using our random forest model are in Figure 2 of the Appendix. The accuracy is reported at 100%, with a very tight confidence interval of .03%.
+
+### Boosting Model
+
+Next we will try a boosting model using 5-fold cross validation:
+
+```{r boosting, cache=TRUE}
+boostModel <- train(classe ~ ., method="gbm", verbose=FALSE, data=training, trControl = trainControl(method = "cv", number = 5))
+```
+
+Now we will look at the results of the boosting model:
+
+```{r boostsummary}
+boostModel
+```
+
+The confusion matrix for the predictions of the boost model on the training data versus the actual label of the training data is included in Figure 3 of the Appendix. The accuracy is reported at 97%, with a confidence interval of less than 1%.
+
+## Model Selection
+
+Based on the performance on the training data, the random forest model looks like a better predictor. However, to confirm this we will compare the performance of each model on the cross-validation data set.
+
+Let's start by using our two competing models to predict the classe of the cross validation set and look at the confusion matrices. I will start with the random forest confusion matrix.
+```{r crossvalidationrf}
+rfPredictions <- predict(rfModel, crossv)
+boostPredictions <- predict(boostModel, crossv)
+confusionMatrix(rfPredictions, crossv$classe)
+```
+
+The random forest model has an accuracy of 99.24% on the cross validation data set.
+
+Now we look at the confusion matrix for the boosting model:
+```{r crossvalidationboost}
+confusionMatrix(boostPredictions, crossv$classe)
+```
+
+The random forest model performs better on the cross validation data set than the boosting model, so we will select that as the final model.
+
+To interpret this model we will extract the importance of the features from the model, order it and look at the top ten results. This will be the 10 features most important to the prediction.
+
+```{r modelinterpretation}
+importance <- varImp(rfModel)$importance
+importance$val <- importance$Overall
+importance <- importance[order(importance$Overall, decreasing = T), ]
+importance$val <- NULL
+head(importance, 10)
+```
+
+Finally I will look at the final model from the random forest algorithm:
+
+```{r finalmodel}
+rfModel$finalModel
+```
+
+The model results in 500 trees with 2 variables at each split. The estimated error rate is 0.71%  which is quite close to the actual error rate on the cross validation data set. 
+
+## Predictions
+
+Lastly we will apply the final model to the testing data set. The data has already been preprocessed so we simply predict with our model:
+```{r predicttesting}
+testPredictions <- predict(rfModel, testing)
+testPredictions
 ```
 
 
@@ -79,6 +155,17 @@ rfModel <- train(classe ~ ., method="rf", data=training, trControl = trainContro
 
 ### Figure 1 - Correlation Matrix of features to classe
 
-```{r correlationmatrix}
+```{r correlationmatrixfigure}
 apply(training, 2, function(col) cor(as.numeric(col), as.numeric(training$classe), method="spearman")) 
+```
+
+### Figure 2 - Confusion Matrix for random forest model on training data
+
+```{r trainingcmrf}
+confusionMatrix(predict(rfModel, training), training$classe )
+```
+
+### Figure 3 - Confusion Matrix for boost model on training data
+```{r trainingcmboost}
+confusionMatrix( predict(boostModel, training) , training$classe)
 ```
